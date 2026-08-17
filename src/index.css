@@ -1,0 +1,229 @@
+/* ============================================================
+   Aleckssa's 18th Birthday RSVP — Design System
+   Dark Gothic Theme matching aleckssa18th.carrd.co
+   Version: 1.0
+   ============================================================ */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+
+/* ========================
+   CSS Custom Properties
+   ======================== */
+:root {
+  /* Colors — Dark Gothic Palette */
+  --color-base: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-raised: #1a1a1a;
+  --color-surface-overlay: rgba(20, 10, 10, 0.92);
+
+  --color-maroon-deep: #3d0f0f;
+  --color-maroon: #5c1a1a;
+  --color-maroon-mid: #7a2a2a;
+  --color-maroon-light: #8b2252;
+  --color-maroon-glow: #a0333380;
+
+  --color-silver: #c0c0c0;
+  --color-silver-light: #d4d4d4;
+  --color-silver-muted: #8a8a8a;
+  --color-silver-dark: #555555;
+
+  --color-text-primary: #e8e0d8;
+  --color-text-secondary: #a09890;
+  --color-text-muted: #706860;
+
+  --color-success: #2d6a4f;
+  --color-success-text: #95d5b2;
+  --color-warning: #7f5539;
+  --color-warning-text: #e6c29a;
+  --color-danger: #6b1c1c;
+  --color-danger-text: #e8a0a0;
+
+  /* Typography */
+  --font-heading: 'Playfair Display', 'Cormorant Garamond', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-accent: 'Cormorant Garamond', serif;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px var(--color-maroon-glow);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+}
+
+/* ========================
+   Reset & Base Styles
+   ======================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-base);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ========================
+   Typography
+   ======================== */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+h1 {
+  font-size: 2.5rem;
+  letter-spacing: 0.02em;
+}
+
+h2 {
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+p {
+  color: var(--color-text-secondary);
+}
+
+a {
+  color: var(--color-maroon-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-silver-light);
+}
+
+/* ========================
+   Ornamental Elements
+   ======================== */
+.ornament-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin: var(--space-xl) 0;
+  color: var(--color-silver-dark);
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+}
+
+.ornament-divider::before,
+.ornament-divider::after {
+  content: '';
+  flex: 1;
+  max-width: 120px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-silver-dark),
+    transparent
+  );
+}
+
+.ornament-star {
+  display: inline-block;
+  color: var(--color-silver-dark);
+  font-size: 0.5rem;
+  letter-spacing: 0.5em;
+}
+
+/* ========================
+   Scrollbar Styling
+   ======================== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-maroon-deep);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-maroon);
+}
+
+/* ========================
+   Selection
+   ======================== */
+::selection {
+  background: var(--color-maroon);
+  color: var(--color-text-primary);
+}
+
+/* ========================
+   Utility Classes
+   ======================== */
+.text-accent {
+  font-family: var(--font-accent);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
