@@ -20,7 +20,7 @@ export const guestService = {
       .insert({
         name: guestData.name || '',
         email: guestData.email || '',
-        max_count: Number(guestData.max_count) || 1,
+        max_count: (guestData.max_count !== undefined && guestData.max_count !== null) ? Number(guestData.max_count) : 0,
         role: 'individual',  // Standalone individuals keep 'individual' role
         in_group: false,
         group_id: null,
@@ -364,7 +364,7 @@ export const adminService = {
         email: guest.email || '',
         role: guest.role || 'individual',
         companion_of: guest.companion_of || null,
-        max_count: guest.max_count || 1,
+        max_count: (guest.max_count !== undefined && guest.max_count !== null) ? Number(guest.max_count) : 0,
       })
       .select()
       .single();
