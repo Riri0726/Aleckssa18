@@ -34,9 +34,7 @@ const Dashboard = ({ groups, allGuests }) => {
   const respondedGuests = allGuests.filter(
     (g) =>
       g.rsvp_submitted === true &&
-      g.is_coming !== null &&
-      g.email &&
-      g.email.trim() !== ''
+      g.is_coming !== null
   ).length;
 
   const pendingGuests = totalExpectedGuests - respondedGuests;
@@ -45,9 +43,7 @@ const Dashboard = ({ groups, allGuests }) => {
   const goingGuests = allGuests.filter(
     (g) =>
       g.is_coming === true &&
-      g.rsvp_submitted === true &&
-      g.email &&
-      g.email.trim() !== ''
+      g.rsvp_submitted === true
   ).length;
 
   const notGoingGuests = allGuests.filter(

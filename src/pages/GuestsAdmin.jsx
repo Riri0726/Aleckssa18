@@ -239,6 +239,17 @@ const GuestsAdmin = ({
             </button>
           ))}
         </div>
+        <select
+          className="rsvp-category-select"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="friends_debutante">Friends of Debutante</option>
+          <option value="relatives_debutante">Relatives of Debutante</option>
+          <option value="friends_parents">Friends of Parents</option>
+          <option value="individual">Individual</option>
+        </select>
         <div className="guests-admin-actions">
           <button onClick={() => setShowAddGroupModal(true)}>
             <PlusIcon /> Add Group
@@ -492,7 +503,7 @@ const GuestsAdmin = ({
                 <input type="email" value={individualForm.email} onChange={(e) => setIndividualForm({ ...individualForm, email: e.target.value })} placeholder="Optional email" />
               </div>
               <div className="form-group">
-                <label>Max Companions (0 = solo)</label>
+                <label>Companion Slots (0 = going solo)</label>
                 <input type="number" value={individualForm.max_count} onChange={(e) => setIndividualForm({ ...individualForm, max_count: Number(e.target.value) })} min="0" />
               </div>
               <div className="modal-actions">

@@ -21,7 +21,7 @@ const RSVPModal = () => {
   const [guestNames, setGuestNames] = useState(['']);
   const [isComing, setIsComing] = useState(true);
 
-  // Calculate remaining slots and companion limits
+  // Calculate remaining slots for non-predetermined groups
   const remainingSlots =
     selectedGroup?.group_count_max && Array.isArray(groupGuests)
       ? Math.max(0, selectedGroup.group_count_max - groupGuests.length)
@@ -32,26 +32,52 @@ const RSVPModal = () => {
     selectedGroup?.role === 'individual' ||
     (selectedGroup?.is_predetermined && selectedGuest?.role === 'individual');
 
-  // For individual guests, use the guest's max_count or group's count_max
-  const individualMaxCount = isIndividualGuest
+  // For individual guests, max_count represents COMPANION SLOTS ONLY (not total)
+  // 0 = solo (no companions), 1 = 1 companion allowed, etc.
+  const companionSlots = isIndividualGuest
     ? (selectedGuest?.max_count ??
         selectedGroup?.group_count_max ??
         selectedGroup?.max_count ??
-        1)
+        0)
     : 0;
+
+  // Total attendees = main guest + companions
+  const totalAttendees = isIndividualGuest ? 1 + companionSlots : 0;
 
   // Determine max slots based on context
   let maxSlots;
   if (isIndividualGuest) {
-    maxSlots = individualMaxCount;
+    // For individual guests, total including main guest + companions
+    maxSlots = totalAttendees;
   } else {
     maxSlots = typeof remainingSlots === 'number' ? remainingSlots : Infinity;
   }
 
-  // Can add more guests
+  // Can add more guests (companions)
   const canAddMoreGuests = isIndividualGuest
-    ? individualMaxCount > 1 && guestNames.length < individualMaxCount
+    ? companionSlots > 0 && guestNames.length - 1 < companionSlots
     : guestNames.length < maxSlots;
+
+  // -------------------------------------------------------
+  // BUG FIX #2: Check if group/guest has already answered
+  // -------------------------------------------------------
+  const isAlreadyAnswered = (() => {
+    if (!selectedGroup) return false;
+
+    if (selectedGroup.is_predetermined) {
+      // For predetermined groups: check if the selected guest already responded
+      if (selectedGuest) {
+        return selectedGuest.is_coming !== null;
+      }
+      // If no guest selected yet, check if ALL have responded
+      const currentGroupGuests = guestsByGroup[selectedGroup.id] || [];
+      return currentGroupGuests.length > 0 && currentGroupGuests.every((g) => g.is_coming !== null);
+    } else {
+      // For non-predetermined groups: locked after any response
+      const currentGroupGuests = guestsByGroup[selectedGroup.id] || [];
+      return currentGroupGuests.some((g) => g.is_coming !== null);
+    }
+  })();
 
   // Reset form when modal closes or group changes
   useEffect(() => {
@@ -87,7 +113,7 @@ const RSVPModal = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedGroup) return;
+    if (!selectedGroup || isAlreadyAnswered) return;
 
     try {
       if (selectedGroup.is_predetermined && selectedGuest) {
@@ -119,9 +145,30 @@ const RSVPModal = () => {
                 companion_of: selectedGuest.id,
               });
             }
-            // Add missing companions as 'Not Going'
-            const missingCount = individualMaxCount - guestNames.length;
+            // BUG FIX #3: Fill remaining companion slots as 'Not Going'
+            const missingCount = companionSlots - companionNames.length;
             for (let i = 0; i < missingCount; i++) {
+              await adminService.createGuest({
+                name: 'Not Attending',
+                is_coming: false,
+                rsvp_submitted: true,
+                in_group: false,
+                email: '',
+                role: 'individual',
+                companion_of: selectedGuest.id,
+              });
+            }
+          }
+        }
+
+        // If individual guest says "Not Going", fill all companion slots as not attending
+        if (isIndividualGuest && !isComing && companionSlots > 0) {
+          const existingCompanions = (
+            guestsByGroup[selectedGuest.id] || []
+          ).filter((g) => g.companion_of === selectedGuest.id);
+
+          if (existingCompanions.length === 0) {
+            for (let i = 0; i < companionSlots; i++) {
               await adminService.createGuest({
                 name: 'Not Attending',
                 is_coming: false,
@@ -146,13 +193,13 @@ const RSVPModal = () => {
           isComing
         );
 
-        // Add missing companions as 'Not Going'
-        if (
-          isComing &&
-          typeof remainingSlots === 'number' &&
-          guestNames.length < remainingSlots
-        ) {
-          const missingCount = remainingSlots - guestNames.length;
+        // BUG FIX #3: Fill remaining slots as 'Not Going' for accurate pending
+        const currentGroupGuests = guestsByGroup[selectedGroup.id] || [];
+        const totalAfterSubmission = currentGroupGuests.length + (isComing ? names.length : 1);
+        const totalMax = selectedGroup.group_count_max || 0;
+
+        if (totalMax > 0 && totalAfterSubmission < totalMax) {
+          const missingCount = totalMax - totalAfterSubmission;
           for (let i = 0; i < missingCount; i++) {
             await adminService.createGuest({
               group_id: selectedGroup.id,
@@ -232,40 +279,16 @@ const RSVPModal = () => {
 
         <h2>RSVP for {selectedGroup?.group_name}</h2>
 
-        {/* Warning if group already has responses */}
-        {selectedGroup &&
-          (() => {
-            const currentGroupGuests = guestsByGroup[selectedGroup.id] || [];
-            let shouldShowWarning = false;
-            let warningMessage = '';
-
-            if (selectedGroup.is_predetermined) {
-              if (currentGroupGuests.length > 0) {
-                const allHaveFinalStatus = currentGroupGuests.every(
-                  (guest) => guest.is_coming !== null
-                );
-                if (allHaveFinalStatus) {
-                  shouldShowWarning = true;
-                  warningMessage =
-                    '⚠️ All guests in this group have already responded. You cannot submit additional RSVPs.';
-                }
-              }
-            } else {
-              const hasFinalStatus = currentGroupGuests.some(
-                (guest) => guest.is_coming !== null
-              );
-              if (hasFinalStatus) {
-                shouldShowWarning = true;
-                warningMessage =
-                  '⚠️ This group has already responded. You cannot submit additional RSVPs.';
-              }
-            }
-
-            if (shouldShowWarning) {
-              return <div className="warning-message">{warningMessage}</div>;
-            }
-            return null;
-          })()}
+        {/* Warning if group already has responses — BUG FIX #2 */}
+        {isAlreadyAnswered && (
+          <div className="warning-message">
+            ⚠️ {selectedGroup?.is_predetermined
+              ? (selectedGuest
+                ? 'This guest has already submitted their RSVP. You cannot submit again.'
+                : 'All guests in this group have already responded. You cannot submit additional RSVPs.')
+              : 'This group has already responded. You cannot submit additional RSVPs.'}
+          </div>
+        )}
 
         {/* Predetermined group: select guest */}
         {selectedGroup?.is_predetermined && !selectedGuest && (
@@ -330,6 +353,7 @@ const RSVPModal = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="Enter your email address"
+                disabled={isAlreadyAnswered}
               />
             </div>
           )}
@@ -339,11 +363,11 @@ const RSVPModal = () => {
               <div className="form-group">
                 <label>Are you coming?</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input type="radio" checked={isComing === true} onChange={() => setIsComing(true)} /> Yes
+                  <label style={{ cursor: isAlreadyAnswered ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="radio" checked={isComing === true} onChange={() => setIsComing(true)} disabled={isAlreadyAnswered} /> Yes
                   </label>
-                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input type="radio" checked={isComing === false} onChange={() => setIsComing(false)} /> No
+                  <label style={{ cursor: isAlreadyAnswered ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="radio" checked={isComing === false} onChange={() => setIsComing(false)} disabled={isAlreadyAnswered} /> No
                   </label>
                 </div>
                 {!isComing && (
@@ -351,18 +375,20 @@ const RSVPModal = () => {
                     <p>💡 Selecting "No" will record that you cannot attend.</p>
                   </div>
                 )}
+                {/* BUG FIX #4: companionSlots is now direct companion count */}
                 {isComing && isIndividualGuest && (
                   <div className="info-message success">
                     <p>
-                      ✨ You can bring up to {Math.max(0, individualMaxCount - 1)}{' '}
-                      {individualMaxCount - 1 === 1 ? 'companion' : 'companions'} with you.
+                      {companionSlots === 0
+                        ? '✨ You are going solo! No companions allowed.'
+                        : `✨ You can bring up to ${companionSlots} ${companionSlots === 1 ? 'companion' : 'companions'} with you.`}
                     </p>
                     <p style={{ fontSize: '12px', marginTop: '4px', color: 'var(--color-text-muted)' }}>
-                      Maximum expected guests: {individualMaxCount}
+                      Maximum expected guests: {totalAttendees} (you + {companionSlots} {companionSlots === 1 ? 'companion' : 'companions'})
                     </p>
                   </div>
                 )}
-                {isComing && isIndividualGuest && individualMaxCount > 1 && (
+                {isComing && isIndividualGuest && companionSlots > 0 && (
                   <div className="form-group" style={{ marginTop: 'var(--space-md)' }}>
                     <label>Your Companions:</label>
                     <div className="guest-inputs">
@@ -374,11 +400,13 @@ const RSVPModal = () => {
                             onChange={(e) => handleGuestNameChange(index + 1, e.target.value)}
                             placeholder="Companion name"
                             className="guest-name-input"
+                            disabled={isAlreadyAnswered}
                           />
                           <button
                             type="button"
                             className="remove-guest-btn"
                             onClick={() => removeGuestInput(index + 1)}
+                            disabled={isAlreadyAnswered}
                           >
                             ×
                           </button>
@@ -386,14 +414,14 @@ const RSVPModal = () => {
                       ))}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {canAddMoreGuests && (
+                      {canAddMoreGuests && !isAlreadyAnswered && (
                         <button type="button" className="add-guest-btn" onClick={addGuestInput}>
                           + Add Companion
                         </button>
                       )}
                       <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                        You can bring {Math.max(0, individualMaxCount - guestNames.length)} more{' '}
-                        {individualMaxCount - guestNames.length === 1 ? 'companion' : 'companions'}
+                        {Math.max(0, companionSlots - (guestNames.length - 1))} more{' '}
+                        {companionSlots - (guestNames.length - 1) === 1 ? 'companion' : 'companions'} allowed
                       </span>
                     </div>
                   </div>
@@ -405,11 +433,11 @@ const RSVPModal = () => {
               <div className="form-group">
                 <label>Are you coming?</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input type="radio" checked={isComing === true} onChange={() => setIsComing(true)} /> Yes
+                  <label style={{ cursor: isAlreadyAnswered ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="radio" checked={isComing === true} onChange={() => setIsComing(true)} disabled={isAlreadyAnswered} /> Yes
                   </label>
-                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input type="radio" checked={isComing === false} onChange={() => setIsComing(false)} /> No
+                  <label style={{ cursor: isAlreadyAnswered ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="radio" checked={isComing === false} onChange={() => setIsComing(false)} disabled={isAlreadyAnswered} /> No
                   </label>
                 </div>
                 {!isComing && (
@@ -421,7 +449,7 @@ const RSVPModal = () => {
 
               {isComing && (
                 <>
-                  {(!isIndividualGuest || individualMaxCount > 1) && (
+                  {(!isIndividualGuest || companionSlots > 0) && (
                     <div className="form-group">
                       <label>
                         {isIndividualGuest ? 'Your Name and Companions:' : 'Names of Attending Guests:'}
@@ -436,12 +464,14 @@ const RSVPModal = () => {
                               placeholder={index === 0 ? 'Your name' : 'Companion name'}
                               className="guest-name-input"
                               required
+                              disabled={isAlreadyAnswered}
                             />
                             {index > 0 && (
                               <button
                                 type="button"
                                 className="remove-guest-btn"
                                 onClick={() => removeGuestInput(index)}
+                                disabled={isAlreadyAnswered}
                               >
                                 ×
                               </button>
@@ -450,7 +480,7 @@ const RSVPModal = () => {
                         ))}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {canAddMoreGuests && (
+                        {canAddMoreGuests && !isAlreadyAnswered && (
                           <button type="button" className="add-guest-btn" onClick={addGuestInput}>
                             {isIndividualGuest ? '+ Add Companion' : '+ Add Another Guest'}
                           </button>
@@ -469,7 +499,7 @@ const RSVPModal = () => {
                     </div>
                   )}
 
-                  {isIndividualGuest && individualMaxCount <= 1 && (
+                  {isIndividualGuest && companionSlots === 0 && (
                     <div
                       style={{
                         padding: '16px',
@@ -495,6 +525,7 @@ const RSVPModal = () => {
             className="submit-btn"
             disabled={
               loading ||
+              isAlreadyAnswered ||
               (selectedGroup?.is_predetermined && !selectedGuest) ||
               (!selectedGroup?.is_predetermined &&
                 typeof remainingSlots === 'number' &&
@@ -505,7 +536,7 @@ const RSVPModal = () => {
               (isIndividualGuest && isComing && !email.trim())
             }
           >
-            {loading ? 'Submitting...' : 'Submit RSVP'}
+            {loading ? 'Submitting...' : isAlreadyAnswered ? 'Already Submitted' : 'Submit RSVP'}
           </button>
         </form>
       </div>
