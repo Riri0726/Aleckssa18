@@ -26,9 +26,9 @@ function calculateExpectedGuests(groups, allGuests) {
   }, 0);
 
   const standaloneGuests = allGuests.filter(
-    (guest) => guest.role === 'individual' && guest.in_group === false && !guest.group_id
+    (guest) => guest.role === 'individual' && guest.in_group === false && !guest.group_id && !guest.companion_of
   );
-  total += standaloneGuests.reduce((sum, guest) => sum + (guest.max_count || 1), 0);
+  total += standaloneGuests.reduce((sum, guest) => sum + 1 + (guest.max_count || 0), 0);
 
   return total;
 }
@@ -149,5 +149,20 @@ describe('Dashboard Counting Logic (Bug #1)', () => {
     expect(countResponded(guests)).toBe(2); // Both admin-set and user-submitted
     expect(countGoing(guests)).toBe(2);
     expect(countNotGoing(guests)).toBe(0);
+  });
+
+  it('should calculate expected capacity for main individual guests as 1 + max_count and ignore companions', () => {
+    const groups = [];
+    const guests = [
+      // Main guest with 2 companion slots (expected = 3)
+      { id: 'm1', role: 'individual', in_group: false, group_id: null, max_count: 2, companion_of: null },
+      // Companion 1 under m1 (should not be counted in expected standalone)
+      { id: 'c1', role: 'individual', in_group: false, group_id: null, max_count: 0, companion_of: 'm1' },
+      // Companion 2 under m1 (should not be counted in expected standalone)
+      { id: 'c2', role: 'individual', in_group: false, group_id: null, max_count: 0, companion_of: 'm1' },
+    ];
+
+    const expected = calculateExpectedGuests(groups, guests);
+    expect(expected).toBe(3); // 1 main guest + 2 companions = 3 total expected capacity
   });
 });

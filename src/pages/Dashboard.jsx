@@ -16,14 +16,15 @@ const Dashboard = ({ groups, allGuests }) => {
       }
     }, 0);
 
-    // Add standalone individual guests (not in any group)
+    // Add standalone individual guests (not in any group, excluding companion records)
     const standaloneGuests = allGuests.filter(
       (guest) =>
         guest.role === 'individual' &&
         guest.in_group === false &&
-        !guest.group_id
+        !guest.group_id &&
+        !guest.companion_of
     );
-    total += standaloneGuests.reduce((sum, guest) => sum + (guest.max_count || 1), 0);
+    total += standaloneGuests.reduce((sum, guest) => sum + 1 + (guest.max_count || 0), 0);
 
     return total;
   };
@@ -62,14 +63,15 @@ const Dashboard = ({ groups, allGuests }) => {
       }
     }, 0);
 
-    // Add standalone individual guests of this role
+    // Add standalone individual guests of this role (excluding companion records)
     const standaloneGuests = allGuests.filter(
       (guest) =>
         guest.role === role &&
         guest.in_group === false &&
-        !guest.group_id
+        !guest.group_id &&
+        !guest.companion_of
     );
-    expectedCount += standaloneGuests.reduce((sum, guest) => sum + (guest.max_count || 1), 0);
+    expectedCount += standaloneGuests.reduce((sum, guest) => sum + 1 + (guest.max_count || 0), 0);
 
     const actualGuests = allGuests.filter((g) => {
       const group = groups.find((grp) => grp.id === g.group_id);

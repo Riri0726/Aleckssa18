@@ -186,7 +186,7 @@ const GuestsAdmin = ({
   const handleQuickStatus = async (status) => {
     if (!guestForQuickEdit) return;
     try {
-      await adminService.updateGuest(guestForQuickEdit.id, { is_coming: status, rsvp_submitted: status !== null });
+      await adminService.updateGuestQuickStatus(guestForQuickEdit.id, status);
       showToast('Status updated');
       setShowQuickStatusModal(false);
       setGuestForQuickEdit(null);

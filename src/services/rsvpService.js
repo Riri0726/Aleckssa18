@@ -454,6 +454,65 @@ export const adminService = {
     return true;
   },
 
+  async updateGuestQuickStatus(guestId, status) {
+    // 1. Fetch current guest details to check role and companions
+    const { data: guest, error: fetchError } = await supabase
+      .from('guests')
+      .select('*')
+      .eq('id', guestId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // 2. Update main guest status
+    const { error: updateError } = await supabase
+      .from('guests')
+      .update({
+        is_coming: status,
+        rsvp_submitted: status !== null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', guestId);
+
+    if (updateError) throw updateError;
+
+    // 3. Handle companion records if it's a main individual guest
+    if (guest.role === 'individual' && !guest.companion_of) {
+      const companionSlots = guest.max_count || 0;
+      if (companionSlots > 0) {
+        // Remove any old companions first to prevent duplicates
+        const { error: deleteError } = await supabase
+          .from('guests')
+          .delete()
+          .eq('companion_of', guestId);
+
+        if (deleteError) throw deleteError;
+
+        // If status is Going or Not Going, populate companion slots as Not Attending
+        if (status !== null) {
+          const companionsToInsert = [];
+          for (let i = 0; i < companionSlots; i++) {
+            companionsToInsert.push({
+              name: 'Not Attending',
+              is_coming: false,
+              rsvp_submitted: true,
+              in_group: false,
+              email: '',
+              role: 'individual',
+              companion_of: guestId,
+            });
+          }
+          const { error: insertError } = await supabase
+            .from('guests')
+            .insert(companionsToInsert);
+
+          if (insertError) throw insertError;
+        }
+      }
+    }
+    return true;
+  },
+
   async deleteGuest(guestId) {
     const { error } = await supabase
       .from('guests')
