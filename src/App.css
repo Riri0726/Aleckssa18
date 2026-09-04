@@ -565,6 +565,31 @@
   accent-color: var(--color-maroon);
 }
 
+/* Companion edit block inside Edit Guest modal */
+.companion-edit-section {
+  margin-top: var(--space-md);
+  border: 1px solid var(--color-maroon-deep);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  background: rgba(92, 26, 26, 0.06);
+}
+
+.companion-edit-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-silver-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+.companion-input-row {
+  margin-bottom: var(--space-sm) !important;
+}
+
 /* ========================
    BUTTONS
    ======================== */

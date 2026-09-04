@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { adminService, guestService } from '../services/rsvpService';
+import { supabase } from '../supabase';
 import {
   UserIcon,
   UsersIcon,
@@ -32,6 +33,9 @@ const GuestsAdmin = ({
   const [editingGuest, setEditingGuest] = useState(null);
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  // Companion editing state
+  const [companionNames, setCompanionNames] = useState([]);
+  const [companionLoading, setCompanionLoading] = useState(false);
 
   // Delete states
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
@@ -143,9 +147,34 @@ const GuestsAdmin = ({
     if (!editingGuest) return;
     try {
       await adminService.updateGuest(editingGuest.id, guestForm);
+
+      // If individual with companion slots, replace companion records
+      if (editingGuest.role === 'individual' && !editingGuest.companion_of && companionNames.length > 0) {
+        // Delete existing companions
+        await supabase.from('guests').delete().eq('companion_of', editingGuest.id);
+
+        // Insert updated companions (skip blank names)
+        const toInsert = companionNames
+          .filter((n) => n && n.trim())
+          .map((n) => ({
+            name: n.trim(),
+            is_coming: editingGuest.is_coming ?? null,
+            rsvp_submitted: editingGuest.rsvp_submitted ?? false,
+            in_group: false,
+            email: '',
+            role: 'individual',
+            companion_of: editingGuest.id,
+          }));
+
+        if (toInsert.length > 0) {
+          await supabase.from('guests').insert(toInsert);
+        }
+      }
+
       showToast('Guest updated successfully');
       setShowEditGuestModal(false);
       setEditingGuest(null);
+      setCompanionNames([]);
       if (refresh) refresh();
     } catch (err) {
       showToast('Error updating guest', 'error');
@@ -305,10 +334,28 @@ const GuestsAdmin = ({
                   <PencilIcon />
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setEditingGuest(guest);
-                    setGuestForm({ name: guest.name, email: guest.email || '', is_coming: guest.is_coming, max_count: guest.max_count || 1 });
+                    setGuestForm({ name: guest.name, email: guest.email || '', is_coming: guest.is_coming, max_count: guest.max_count || 0 });
                     setShowEditGuestModal(true);
+                    // Load existing companion names
+                    if ((guest.max_count || 0) > 0) {
+                      setCompanionLoading(true);
+                      try {
+                        const { data: comps } = await supabase
+                          .from('guests')
+                          .select('name')
+                          .eq('companion_of', guest.id)
+                          .order('created_at', { ascending: true });
+                        const names = Array.from({ length: guest.max_count }, (_, i) =>
+                          comps?.[i]?.name && comps[i].name !== 'Not Attending' ? comps[i].name : ''
+                        );
+                        setCompanionNames(names);
+                      } catch {}
+                      setCompanionLoading(false);
+                    } else {
+                      setCompanionNames([]);
+                    }
                   }}
                   title="Edit"
                 >
@@ -539,7 +586,7 @@ const GuestsAdmin = ({
 
       {/* Edit Guest Modal */}
       {showEditGuestModal && (
-        <div className="modal-overlay" onClick={() => setShowEditGuestModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowEditGuestModal(false); setCompanionNames([]); }}>
           <div className="modal-content admin-form-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Edit Guest</h2>
             <form onSubmit={handleEditGuest}>
@@ -551,8 +598,38 @@ const GuestsAdmin = ({
                 <label>Email</label>
                 <input type="email" value={guestForm.email} onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })} />
               </div>
+
+              {/* Companion slots — only for individuals with max_count > 0 */}
+              {editingGuest?.role === 'individual' && !editingGuest?.companion_of && (guestForm.max_count || 0) > 0 && (
+                <div className="companion-edit-section">
+                  <div className="companion-edit-label">
+                    <UsersIcon style={{ width: 15, height: 15 }} />
+                    Companion Slots ({guestForm.max_count})
+                  </div>
+                  {companionLoading ? (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>Loading companions…</div>
+                  ) : (
+                    Array.from({ length: Number(guestForm.max_count) }, (_, i) => (
+                      <div className="form-group companion-input-row" key={i}>
+                        <label>Companion {i + 1} <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(leave blank if unknown)</span></label>
+                        <input
+                          type="text"
+                          placeholder={`Companion ${i + 1} name`}
+                          value={companionNames[i] || ''}
+                          onChange={(e) => {
+                            const updated = [...companionNames];
+                            updated[i] = e.target.value;
+                            setCompanionNames(updated);
+                          }}
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowEditGuestModal(false)}>Cancel</button>
+                <button type="button" className="btn-secondary" onClick={() => { setShowEditGuestModal(false); setCompanionNames([]); }}>Cancel</button>
                 <button type="submit" className="btn-primary">Save Changes</button>
               </div>
             </form>
