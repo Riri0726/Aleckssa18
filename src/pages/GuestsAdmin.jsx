@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { adminService, guestService } from '../services/rsvpService';
 import { supabase } from '../supabase';
+import { buildExportRows, exportCSV, exportPDF } from '../services/exportService';
 import {
   UserIcon,
   UsersIcon,
@@ -8,10 +9,12 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
 const GuestsAdmin = ({
   groups,
+  allGuests = [],
   guestsByGroup,
   individualGuests = [],
   filter,
@@ -36,6 +39,34 @@ const GuestsAdmin = ({
   // Companion editing state
   const [companionNames, setCompanionNames] = useState([]);
   const [companionLoading, setCompanionLoading] = useState(false);
+  // Export dropdown
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportRef = useRef(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e) => { if (exportRef.current && !exportRef.current.contains(e.target)) setShowExportMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleExport = async (format) => {
+    setShowExportMenu(false);
+    const rows = buildExportRows(allGuests, groups);
+    if (rows.length === 0) { showToast('No guest data to export', 'error'); return; }
+    if (format === 'csv') {
+      exportCSV(rows, "aleckssa18-guest-list.csv");
+      showToast('CSV downloaded!');
+    } else {
+      try {
+        await exportPDF(rows, "Aleckssa's 18th — Guest List", 'aleckssa18-guest-list.pdf');
+        showToast('PDF downloaded!');
+      } catch (err) {
+        showToast('Error generating PDF', 'error');
+        console.error(err);
+      }
+    }
+  };
 
   // Delete states
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
@@ -286,6 +317,22 @@ const GuestsAdmin = ({
           <button onClick={() => setShowAddIndividualModal(true)}>
             <UserIcon /> Add Individual
           </button>
+          {/* Export dropdown */}
+          <div className="export-dropdown-wrap" ref={exportRef}>
+            <button className="export-btn" onClick={() => setShowExportMenu((v) => !v)}>
+              <ArrowDownTrayIcon /> Export
+            </button>
+            {showExportMenu && (
+              <div className="export-menu">
+                <button onClick={() => handleExport('csv')}>
+                  <span className="export-icon">📄</span> Export CSV
+                </button>
+                <button onClick={() => handleExport('pdf')}>
+                  <span className="export-icon">📑</span> Export PDF
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

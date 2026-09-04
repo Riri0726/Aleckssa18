@@ -89,6 +89,7 @@ const Admin = () => {
         {activeTab === 'guests' && (
           <GuestsAdmin
             groups={groups}
+            allGuests={allGuests}
             guestsByGroup={guestsByGroup}
             individualGuests={individualGuests}
             filter={filter}
