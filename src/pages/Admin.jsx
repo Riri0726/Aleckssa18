@@ -37,9 +37,9 @@ const Admin = () => {
       }
       setGuestsByGroup(organized);
 
-      // Get standalone individuals
+      // Get standalone individuals (main guests only — no companions)
       const individuals = guests.filter(
-        (g) => g.role === 'individual' && g.in_group === false && !g.group_id
+        (g) => g.role === 'individual' && g.in_group === false && !g.group_id && !g.companion_of
       );
       setIndividualGuests(individuals);
     } catch (err) {

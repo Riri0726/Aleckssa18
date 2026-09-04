@@ -351,69 +351,111 @@ const GuestsAdmin = ({
       {(filter === 'all' || filter === 'individual') && filteredIndividuals.length > 0 && (
         <>
           <div className="rsvp-section-header">Individual Guests</div>
-          {filteredIndividuals.map((guest) => (
-            <div key={guest.id} className="admin-individual-card">
-              <div>
-                <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', marginBottom: 4 }}>
-                  {guest.name}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                  {guest.email || 'No email'}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  {getStatusBadge(guest)}
-                  {(guest.max_count || 0) > 0 && (
-                    <span
-                      className={`guest-capacity-badge ${
-                        (guest.companion_count || 0) >= guest.max_count
-                          ? 'capacity-full'
-                          : 'capacity-partial'
-                      }`}
-                      title={(guest.companion_count || 0) >= guest.max_count ? 'Companion slots filled' : 'Companion slots available'}
+          {filteredIndividuals.map((guest) => {
+            const companions = allGuests.filter((g) => g.companion_of === guest.id);
+            const hasSlots = (guest.max_count || 0) > 0;
+            const isFull = companions.length >= (guest.max_count || 0);
+            return (
+              <div key={guest.id} className="admin-individual-card">
+                {/* Main guest row */}
+                <div className="admin-individual-main">
+                  <div className="admin-individual-info">
+                    <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', marginBottom: 2 }}>
+                      {guest.name}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      {guest.email || 'No email'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {getStatusBadge(guest)}
+                      {hasSlots && (
+                        <span
+                          className={`guest-capacity-badge ${isFull ? 'capacity-full' : 'capacity-partial'}`}
+                          title={isFull ? 'Companion slots filled' : 'Companion slots available'}
+                        >
+                          {isFull ? '✦' : '⚠'} {companions.length} / {guest.max_count} companions
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="admin-guest-actions">
+                    <button onClick={() => { setGuestForQuickEdit(guest); setShowQuickStatusModal(true); }} title="Quick Status">
+                      <PencilIcon />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setEditingGuest(guest);
+                        setGuestForm({ name: guest.name, email: guest.email || '', is_coming: guest.is_coming, max_count: guest.max_count || 0 });
+                        setShowEditGuestModal(true);
+                        if ((guest.max_count || 0) > 0) {
+                          setCompanionLoading(true);
+                          try {
+                            const { data: comps } = await supabase
+                              .from('guests')
+                              .select('name')
+                              .eq('companion_of', guest.id)
+                              .order('created_at', { ascending: true });
+                            const names = Array.from({ length: guest.max_count }, (_, i) =>
+                              comps?.[i]?.name && comps[i].name !== 'Not Attending' ? comps[i].name : ''
+                            );
+                            setCompanionNames(names);
+                          } catch {}
+                          setCompanionLoading(false);
+                        } else {
+                          setCompanionNames([]);
+                        }
+                      }}
+                      title="Edit"
                     >
-                      {(guest.companion_count || 0) >= guest.max_count ? '✦' : '⚠'} {guest.companion_count || 0} / {guest.max_count} companions
-                    </span>
-                  )}
+                      <PencilIcon />
+                    </button>
+                    <button className="danger" onClick={() => { setGuestToDelete(guest); setShowDeleteGuestConfirm(true); }} title="Delete">
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Companion sub-rows */}
+                {companions.length > 0 && (
+                  <div className="admin-companion-list">
+                    {companions.map((comp) => (
+                      <div key={comp.id} className="admin-companion-row">
+                        <div className="admin-companion-info">
+                          <span className="companion-dot">↳</span>
+                          <div>
+                            <div className="companion-name">
+                              {comp.name && comp.name !== 'Not Attending'
+                                ? comp.name
+                                : <em style={{ color: 'var(--color-text-muted)' }}>Companion (name not set)</em>}
+                            </div>
+                          </div>
+                        </div>
+                        {getStatusBadge(comp)}
+                      </div>
+                    ))}
+                    {/* Empty slots */}
+                    {Array.from({ length: Math.max(0, (guest.max_count || 0) - companions.length) }).map((_, i) => (
+                      <div key={`empty-${i}`} className="admin-companion-row admin-companion-empty">
+                        <span className="companion-dot">↳</span>
+                        <em>Slot {companions.length + i + 1} — not filled</em>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* If slots exist but no companions yet */}
+                {hasSlots && companions.length === 0 && (
+                  <div className="admin-companion-list">
+                    {Array.from({ length: guest.max_count }).map((_, i) => (
+                      <div key={`empty-${i}`} className="admin-companion-row admin-companion-empty">
+                        <span className="companion-dot">↳</span>
+                        <em>Slot {i + 1} — not filled yet</em>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="admin-guest-actions">
-                <button onClick={() => { setGuestForQuickEdit(guest); setShowQuickStatusModal(true); }} title="Quick Status">
-                  <PencilIcon />
-                </button>
-                <button
-                  onClick={async () => {
-                    setEditingGuest(guest);
-                    setGuestForm({ name: guest.name, email: guest.email || '', is_coming: guest.is_coming, max_count: guest.max_count || 0 });
-                    setShowEditGuestModal(true);
-                    // Load existing companion names
-                    if ((guest.max_count || 0) > 0) {
-                      setCompanionLoading(true);
-                      try {
-                        const { data: comps } = await supabase
-                          .from('guests')
-                          .select('name')
-                          .eq('companion_of', guest.id)
-                          .order('created_at', { ascending: true });
-                        const names = Array.from({ length: guest.max_count }, (_, i) =>
-                          comps?.[i]?.name && comps[i].name !== 'Not Attending' ? comps[i].name : ''
-                        );
-                        setCompanionNames(names);
-                      } catch {}
-                      setCompanionLoading(false);
-                    } else {
-                      setCompanionNames([]);
-                    }
-                  }}
-                  title="Edit"
-                >
-                  <PencilIcon />
-                </button>
-                <button className="danger" onClick={() => { setGuestToDelete(guest); setShowDeleteGuestConfirm(true); }} title="Delete">
-                  <TrashIcon />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </>
       )}
 
