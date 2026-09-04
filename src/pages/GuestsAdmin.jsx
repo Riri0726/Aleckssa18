@@ -281,10 +281,24 @@ const GuestsAdmin = ({
                 <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', marginBottom: 4 }}>
                   {guest.name}
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                  {guest.email || 'No email'} • Max: {guest.max_count || 1}
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                  {guest.email || 'No email'}
                 </div>
-                <div style={{ marginTop: 4 }}>{getStatusBadge(guest)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {getStatusBadge(guest)}
+                  {(guest.max_count || 0) > 0 && (
+                    <span
+                      className={`guest-capacity-badge ${
+                        (guest.companion_count || 0) >= guest.max_count
+                          ? 'capacity-full'
+                          : 'capacity-partial'
+                      }`}
+                      title={(guest.companion_count || 0) >= guest.max_count ? 'Companion slots filled' : 'Companion slots available'}
+                    >
+                      {(guest.companion_count || 0) >= guest.max_count ? '✦' : '⚠'} {guest.companion_count || 0} / {guest.max_count} companions
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="admin-guest-actions">
                 <button onClick={() => { setGuestForQuickEdit(guest); setShowQuickStatusModal(true); }} title="Quick Status">
@@ -353,9 +367,17 @@ const GuestsAdmin = ({
             <div className="admin-group-body">
               <div className="admin-group-meta">
                 <span>Role: {group.role}</span>
-                <span>Max: {group.group_count_max}</span>
                 <span>{group.is_predetermined ? 'Predetermined' : 'Open'}</span>
-                <span>Guests: {guests.length}</span>
+                <span
+                  className={`guest-capacity-badge ${
+                    guests.length >= group.group_count_max
+                      ? 'capacity-full'
+                      : 'capacity-partial'
+                  }`}
+                  title={guests.length >= group.group_count_max ? 'Fully maxed out' : 'Not yet at max capacity'}
+                >
+                  {guests.length >= group.group_count_max ? '✦' : '⚠'} {guests.length} / {group.group_count_max}
+                </span>
               </div>
               {guests.length === 0 ? (
                 <div className="empty-state">No guests in this group</div>

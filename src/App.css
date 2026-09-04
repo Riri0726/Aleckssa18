@@ -1320,6 +1320,41 @@
   font-size: 0.8rem;
   color: var(--color-text-muted);
   margin-bottom: var(--space-md);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Capacity badge for Max / Guests count */
+.guest-capacity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: all var(--transition-fast);
+}
+
+.guest-capacity-badge.capacity-partial {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: #f0c040;
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.2);
+  animation: capacity-pulse 2.5s ease-in-out infinite;
+}
+
+.guest-capacity-badge.capacity-full {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #4ade80;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+}
+
+@keyframes capacity-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(234, 179, 8, 0.2); }
+  50% { box-shadow: 0 0 14px rgba(234, 179, 8, 0.45); }
 }
 
 /* Guest rows in admin group */
